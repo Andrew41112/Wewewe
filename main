@@ -73,12 +73,10 @@ local function authenticateBot()
             return true
         else
             print("Authentication failed - invalid response")
-            player:Kick("Authentication failed!")
             return false
         end
     else
         print("Authentication failed - no response")
-        player:Kick("Authentication failed!")
         return false
     end
 end
