@@ -119,18 +119,27 @@ local function teleportAndAnnounce()
         
         print("Player teleported to:", targetPosition)
         
-        -- Wait a moment then send chat message
+        -- Wait a moment then send server message
         wait(1)
         
-        -- Send chat message
+        -- Send server-side chat message using TextChatService
         local success, error = pcall(function()
-            game:GetService("Chat"):Chat(player.Character.Head, "BOT IS READY FOR TRADES!")
+            game:GetService("TextChatService").TextChannels.RBXGeneral:DisplaySystemMessage("BOT IS READY FOR TRADES!")
         end)
         
         if success then
-            print("Chat message sent: BOT IS READY FOR TRADES!")
+            print("Server message sent: BOT IS READY FOR TRADES!")
         else
-            print("Failed to send chat message:", error)
+            print("Failed to send server message:", error)
+            -- Fallback to legacy chat if TextChatService fails
+            local fallbackSuccess, fallbackError = pcall(function()
+                game:GetService("Chat"):Chat(player.Character.Head, "BOT IS READY FOR TRADES!")
+            end)
+            if fallbackSuccess then
+                print("Fallback chat message sent successfully")
+            else
+                print("Both chat methods failed:", fallbackError)
+            end
         end
     else
         print("Player character or HumanoidRootPart not found")
