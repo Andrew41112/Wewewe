@@ -1,4 +1,135 @@
-return {
-    "andreastimotheou",
-    -- Add more usernames as needed
-}
+local dev = false
+local key = "YOUR_KEY_HERE" -- Replace with your actual key
+
+local Players = game:GetService("Players")
+local HttpService = game:GetService("HttpService")
+local RunService = game:GetService("RunService")
+local player = Players.LocalPlayer
+
+-- Wait for game to fully load
+if not game:IsLoaded() then
+    game.Loaded:Wait()
+end
+
+-- Wait for player character to spawn
+if not player.Character then
+    player.CharacterAdded:Wait()
+end
+
+-- Wait for HumanoidRootPart to exist
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+
+-- Function to make GET request
+local function makeGetRequest(url)
+    local success, result = pcall(function()
+        local response = game:HttpGet(url)
+        return response
+    end)
+    
+    if success then
+        print("GET Request Result:")
+        print(result)
+    else
+        print("GET Request failed:", result)
+    end
+end
+
+-- Function to make POST request
+local function makePostRequest(url, body)
+    local bodyData = body or "NULL"
+    
+    local success, result = pcall(function()
+        local response = game:HttpPost(url, bodyData)
+        return response
+    end)
+    
+    if success then
+        print("POST Request Result:")
+        print(result)
+        return result
+    else
+        print("POST Request failed:", result)
+        return nil
+    end
+end
+
+-- Function to authenticate bot
+local function authenticateBot()
+    local authData = HttpService:JSONEncode({
+        username = player.Name,
+        key = key
+    })
+    
+    local response = makePostRequest("https://realtime.skinarcade.com/api/bot/available", authData)
+    
+    if response then
+        local success, decoded = pcall(function()
+            return HttpService:JSONDecode(response)
+        end)
+        
+        if success and decoded.success == true then
+            print("Bot authentication successful!")
+            return true
+        else
+            print("Authentication failed - invalid response")
+            player:Kick("Authentication failed!")
+            return false
+        end
+    else
+        print("Authentication failed - no response")
+        player:Kick("Authentication failed!")
+        return false
+    end
+end
+
+-- Function to teleport player and announce readiness
+local function teleportAndAnnounce()
+    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        -- Teleport to specified position
+        local targetPosition = Vector3.new(86.81375885009766, 2.999999523162842, -13.788054466247559)
+        player.Character.HumanoidRootPart.CFrame = CFrame.new(targetPosition)
+        
+        print("Player teleported to:", targetPosition)
+        
+        -- Wait a moment then send chat message
+        wait(1)
+        
+        -- Send chat message
+        local success, error = pcall(function()
+            game:GetService("Chat"):Chat(player.Character.Head, "BOT IS READY FOR TRADES!")
+        end)
+        
+        if success then
+            print("Chat message sent: BOT IS READY FOR TRADES!")
+        else
+            print("Failed to send chat message:", error)
+        end
+    else
+        print("Player character or HumanoidRootPart not found")
+    end
+end
+
+-- Main execution
+print("Game loaded, starting bot initialization...")
+
+-- Check if dev mode is disabled
+if not dev then
+    print("Dev mode is false, authenticating bot...")
+    local authSuccess = authenticateBot()
+    
+    if authSuccess then
+        print("Authentication successful, proceeding with bot setup...")
+        teleportAndAnnounce()
+    else
+        print("Authentication failed, bot stopped.")
+        return
+    end
+else
+    print("Dev mode is true, skipping authentication...")
+    teleportAndAnnounce()
+end
+
+-- Usage examples:
+-- makeGetRequest("https://realtime.skinarcade.com")
+-- makePostRequest("https://realtime.skinarcade.com", "your body data here")
