@@ -1,8 +1,5 @@
-Arcade fair entertainment 
-
-local dev = false
+local dev = true -- Changed to true as requested
 local key = "YOUR_KEY_HERE" -- Replace with your actual key
-
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
@@ -21,6 +18,36 @@ end
 -- Wait for HumanoidRootPart to exist
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+
+-- Function to check if server is up and running
+local function checkServerStatus()
+    print("Checking server status...")
+    
+    local success, result = pcall(function()
+        local response = game:HttpGet("https://realtime.skinarcade.com")
+        return response
+    end)
+    
+    if success then
+        -- Try to parse response as JSON to check for success: true
+        local parseSuccess, decoded = pcall(function()
+            return HttpService:JSONDecode(result)
+        end)
+        
+        if parseSuccess and decoded and decoded.success == true then
+            print("Server is up and running! Received success: true")
+            return true
+        else
+            -- If it's not JSON or doesn't have success: true, log the user/response
+            print("Server response (not success: true):")
+            print(result)
+            return false
+        end
+    else
+        print("Server check failed:", result)
+        return false
+    end
+end
 
 -- Function to make GET request
 local function makeGetRequest(url)
@@ -70,7 +97,7 @@ local function authenticateBot()
             return HttpService:JSONDecode(response)
         end)
         
-        if success and decoded.success == true then
+        if success and decoded and decoded.success == true then
             print("Bot authentication successful!")
             return true
         else
@@ -113,8 +140,21 @@ end
 -- Main execution
 print("Game loaded, starting bot initialization...")
 
--- Check if dev mode is disabled
-if not dev then
+-- FIRST: Always check server status before everything else
+local serverUp = checkServerStatus()
+
+if not serverUp then
+    print("Server is not responding correctly, stopping bot initialization.")
+    return
+end
+
+print("Server check passed, continuing with bot setup...")
+
+-- Check if dev mode is enabled or disabled
+if dev then
+    print("Dev mode is true, skipping authentication...")
+    teleportAndAnnounce()
+else
     print("Dev mode is false, authenticating bot...")
     local authSuccess = authenticateBot()
     
@@ -125,9 +165,6 @@ if not dev then
         print("Authentication failed, bot stopped.")
         return
     end
-else
-    print("Dev mode is true, skipping authentication...")
-    teleportAndAnnounce()
 end
 
 -- Usage examples:
