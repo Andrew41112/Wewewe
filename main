@@ -1,14 +1,10 @@
-local dev = true -- Changed to true as requested
-local key = "YOUR_KEY_HERE" -- Replace with your actual key
+local dev = true
+local key = "YOUR_KEY_HERE"
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
-local RunService = game:GetService("RunService")
 local TextChatService = game:GetService("TextChatService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local player = Players.LocalPlayer
-
--- Global variables
-local itemsList = {}
 
 -- Wait for game to fully load
 if not game:IsLoaded() then
@@ -20,11 +16,7 @@ if not player.Character then
     player.CharacterAdded:Wait()
 end
 
--- Wait for HumanoidRootPart to exist
-local character = player.Character or player.CharacterAdded:Wait()
-local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
-
--- Clean chat function
+-- Chat function
 function chat(msg)
     if TextChatService.ChatVersion == Enum.ChatVersion.TextChatService then
         TextChatService.TextChannels.RBXGeneral:SendAsync(msg)
@@ -33,32 +25,26 @@ function chat(msg)
     end
 end
 
--- Function to check if server is up and running
+-- Function to check server status
 local function checkServerStatus()
-    print("Checking server status...")
-    
     local success, result = pcall(function()
-        local response = game:HttpGet("https://realtime.skinarcade.com")
-        return response
+        return game:HttpGet("https://realtime.skinarcade.com")
     end)
     
     if success then
-        -- Try to parse response as JSON to check for success: true
         local parseSuccess, decoded = pcall(function()
             return HttpService:JSONDecode(result)
         end)
         
         if parseSuccess and decoded and decoded.success == true then
-            print("Server is up and running! Received success: true")
+            print("Server: Online")
             return true
         else
-            -- If it's not JSON or doesn't have success: true, log the response
-            print("Server response (not success: true):")
-            print(result)
+            print("Server: Invalid response")
             return false
         end
     else
-        print("Server check failed:", result)
+        print("Server: Offline")
         return false
     end
 end
@@ -66,35 +52,27 @@ end
 -- Function to make GET request
 local function makeGetRequest(url)
     local success, result = pcall(function()
-        local response = game:HttpGet(url)
-        return response
+        return game:HttpGet(url)
     end)
     
     if success then
-        print("GET Request Result:")
-        print(result)
         return result
     else
-        print("GET Request failed:", result)
+        print("GET failed:", result)
         return nil
     end
 end
 
 -- Function to make POST request
 local function makePostRequest(url, body)
-    local bodyData = body or "NULL"
-    
     local success, result = pcall(function()
-        local response = game:HttpPost(url, bodyData)
-        return response
+        return game:HttpPost(url, body or "NULL")
     end)
     
     if success then
-        print("POST Request Result:")
-        print(result)
         return result
     else
-        print("POST Request failed:", result)
+        print("POST failed:", result)
         return nil
     end
 end
@@ -114,208 +92,42 @@ local function authenticateBot()
         end)
         
         if success and decoded and decoded.success == true then
-            print("Bot authentication successful!")
+            print("Auth: Success")
             return true
         else
-            print("Authentication failed - invalid response")
+            print("Auth: Failed")
             return false
         end
     else
-        print("Authentication failed - no response")
+        print("Auth: No response")
         return false
     end
-end
-
--- Function to load items list from API
-local function loadItemsList()
-    if not dev then
-        return true -- Skip loading items list if not in dev mode
-    end
-    
-    print("Loading items list from API...")
-    
-    local response = makeGetRequest("https://realtime.skinarcade.com/api/get/items/list")
-    
-    if response then
-        local success, decoded = pcall(function()
-            return HttpService:JSONDecode(response)
-        end)
-        
-        if success and decoded and decoded.success == true and decoded.items then
-            itemsList = {}
-            for _, item in pairs(decoded.items) do
-                if item.name then
-                    itemsList[item.name] = item
-                end
-            end
-            print("Items list loaded successfully! Total items: " .. #decoded.items)
-            return true
-        else
-            print("Failed to parse items list response")
-            return false
-        end
-    else
-        print("Failed to load items list")
-        return false
-    end
-end
-
--- Function to deposit item (for non-dev mode)
-local function depositItem(itemName, username)
-    local depositData = HttpService:JSONEncode({
-        key = key,
-        item_name = itemName,
-        username = username
-    })
-    
-    local response = makePostRequest("https://realtime.skinarcade.com/api/gag/deposit", depositData)
-    
-    if response then
-        local success, decoded = pcall(function()
-            return HttpService:JSONDecode(response)
-        end)
-        
-        if success and decoded and decoded.success == true then
-            print("Item deposited successfully!")
-            return true
-        else
-            print("Deposit failed - invalid response")
-            return false
-        end
-    else
-        print("Deposit failed - no response")
-        return false
-    end
-end
-
--- Function to teleport player and announce readiness
-local function teleportAndAnnounce()
-    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-        -- Teleport to specified position
-        local targetPosition = Vector3.new(86.81375885009766, 2.999999523162842, -13.788054466247559)
-        player.Character.HumanoidRootPart.CFrame = CFrame.new(targetPosition)
-        
-        print("Player teleported!")
-        
-        -- Wait a moment then send chat message
-        wait(1)
-        
-        chat("BOT IS READY FOR TRADES!")
-    else
-        print("Player character or HumanoidRootPart not found")
-    end
-end
-
--- Auto-Accept Pet Gifts Setup
-local function setupGiftSystem()
-    -- Wait for remotes
-    local GiftPetRemote = ReplicatedStorage:WaitForChild("GameEvents"):WaitForChild("GiftPet")
-    local AcceptPetGiftRemote = ReplicatedStorage:WaitForChild("GameEvents"):WaitForChild("AcceptPetGift")
-    
-    -- Optional: GiftData module to display nice names
-    local GiftData = nil
-    local success, result = pcall(function()
-        return require(ReplicatedStorage.Data.GiftData)
-    end)
-    
-    if success then
-        GiftData = result
-    end
-    
-    -- Listen for incoming gifts
-    GiftPetRemote.OnClientEvent:Connect(function(giftId, displayText, senderName)
-        -- Auto-accept the gift
-        AcceptPetGiftRemote:FireServer(true, giftId)
-        
-        -- Lookup gift info for nice display
-        local giftName = displayText
-        local displayName = displayText
-        
-        if GiftData then
-            for name, info in pairs(GiftData) do
-                if info.GiftId == giftId or tostring(info.GiftId) == tostring(giftId) then
-                    giftName = name
-                    displayName = info.Display
-                    break
-                end
-            end
-        end
-        
-        -- Check if item exists in our loaded items list (dev mode only)
-        local itemExists = true
-        if dev and itemsList then
-            itemExists = itemsList[giftName] ~= nil
-            if not itemExists then
-                print("Item not found in items list: " .. giftName)
-            end
-        end
-        
-        -- Only process if item exists (or if not in dev mode)
-        if itemExists then
-            -- If not dev mode, deposit the item first
-            if not dev then
-                local depositSuccess = depositItem(giftName, senderName)
-                if not depositSuccess then
-                    print("Failed to deposit item, skipping thank you message")
-                    return
-                end
-            end
-            
-            -- Chat the thank you message with both display name and actual name
-            local thankYouMsg = "Thank you " .. senderName .. "! You gifted me " .. displayName
-            if giftName ~= displayName then
-                thankYouMsg = thankYouMsg .. " (" .. giftName .. ")"
-            end
-            
-            chat(thankYouMsg)
-            
-            -- Log it
-            print("Thank you @" .. senderName .. "! You gifted me " .. displayName .. " (" .. giftName .. ")")
-        end
-    end)
 end
 
 -- Main execution
-print("Game loaded, starting bot initialization...")
-
--- FIRST: Always check server status before everything else
 local serverUp = checkServerStatus()
 
 if not serverUp then
-    print("Server is not responding correctly, stopping bot initialization.")
+    print("Bot: Server down, stopping")
     return
 end
 
-print("Server check passed, continuing with bot setup...")
-
--- Load items list if in dev mode
-local itemsLoaded = loadItemsList()
-if dev and not itemsLoaded then
-    print("Failed to load items list, stopping bot initialization.")
-    return
-end
-
--- Check if dev mode is enabled or disabled
 if dev then
-    print("Dev mode is true, skipping authentication...")
-    teleportAndAnnounce()
+    print("Bot: Dev mode active")
 else
-    print("Dev mode is false, authenticating bot...")
+    print("Bot: Authenticating...")
     local authSuccess = authenticateBot()
     
-    if authSuccess then
-        print("Authentication successful, proceeding with bot setup...")
-        teleportAndAnnounce()
-    else
-        print("Authentication failed, bot stopped.")
+    if not authSuccess then
+        print("Bot: Auth failed, stopping")
         return
     end
+    
+    -- Landing item list (only if dev is false)
+    makeGetRequest("https://realtime.skinarcade.com/api/bot/landing")
+    
+    -- Deposit complete (only if dev is false)
+    makePostRequest("https://realtime.skinarcade.com/api/bot/deposit/complete")
 end
 
--- Setup the auto-accept gift system
-setupGiftSystem()
-
--- Usage examples:
--- makeGetRequest("https://realtime.skinarcade.com")
--- makePostRequest("https://realtime.skinarcade.com", "your body data here")
--- chat("Hello everyone!") -- Easy chat usage
+print("Bot: Ready")
