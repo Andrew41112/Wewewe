@@ -3,6 +3,8 @@ local key = "YOUR_KEY_HERE" -- Replace with your actual key
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
+local TextChatService = game:GetService("TextChatService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local player = Players.LocalPlayer
 
 -- Wait for game to fully load
@@ -18,6 +20,16 @@ end
 -- Wait for HumanoidRootPart to exist
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+
+console.log("V1 Updated chat")
+-- Clean chat function
+function chat(msg)
+    if TextChatService.ChatVersion == Enum.ChatVersion.TextChatService then
+        TextChatService.TextChannels.RBXGeneral:SendAsync(msg)
+    else
+        ReplicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer(msg, "All")
+    end
+end
 
 -- Function to check if server is up and running
 local function checkServerStatus()
@@ -38,7 +50,7 @@ local function checkServerStatus()
             print("Server is up and running! Received success: true")
             return true
         else
-            -- If it's not JSON or doesn't have success: true, log the user/response
+            -- If it's not JSON or doesn't have success: true, log the response
             print("Server response (not success: true):")
             print(result)
             return false
@@ -119,27 +131,18 @@ local function teleportAndAnnounce()
         
         print("Player teleported to:", targetPosition)
         
-        -- Wait a moment then send server message
+        -- Wait a moment then send chat message
         wait(1)
         
-        -- Send server-side chat message using TextChatService
+        -- Use the clean chat function
         local success, error = pcall(function()
-            game:GetService("TextChatService").TextChannels.RBXGeneral:DisplaySystemMessage("BOT IS READY FOR TRADES!")
+            chat("BOT IS READY FOR TRADES!")
         end)
         
         if success then
-            print("Server message sent: BOT IS READY FOR TRADES!")
+            print("Chat message sent: BOT IS READY FOR TRADES!")
         else
-            print("Failed to send server message:", error)
-            -- Fallback to legacy chat if TextChatService fails
-            local fallbackSuccess, fallbackError = pcall(function()
-                game:GetService("Chat"):Chat(player.Character.Head, "BOT IS READY FOR TRADES!")
-            end)
-            if fallbackSuccess then
-                print("Fallback chat message sent successfully")
-            else
-                print("Both chat methods failed:", fallbackError)
-            end
+            print("Failed to send chat message:", error)
         end
     else
         print("Player character or HumanoidRootPart not found")
@@ -179,3 +182,4 @@ end
 -- Usage examples:
 -- makeGetRequest("https://realtime.skinarcade.com")
 -- makePostRequest("https://realtime.skinarcade.com", "your body data here")
+-- chat("Hello everyone!") -- Easy chat usage
