@@ -1,7 +1,8 @@
-local dev = true
-local key = "YOUR_KEY_HERE"
+local dev = true -- Changed to true as requested
+local key = "YOUR_KEY_HERE" -- Replace with your actual key
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
+local RunService = game:GetService("RunService")
 local TextChatService = game:GetService("TextChatService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local player = Players.LocalPlayer
@@ -16,7 +17,11 @@ if not player.Character then
     player.CharacterAdded:Wait()
 end
 
--- Chat function
+-- Wait for HumanoidRootPart to exist
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+
+-- Clean chat function
 function chat(msg)
     if TextChatService.ChatVersion == Enum.ChatVersion.TextChatService then
         TextChatService.TextChannels.RBXGeneral:SendAsync(msg)
@@ -25,26 +30,32 @@ function chat(msg)
     end
 end
 
--- Function to check server status
+-- Function to check if server is up and running
 local function checkServerStatus()
+    print("Checking server status...")
+    
     local success, result = pcall(function()
-        return game:HttpGet("https://realtime.skinarcade.com")
+        local response = game:HttpGet("https://realtime.skinarcade.com")
+        return response
     end)
     
     if success then
+        -- Try to parse response as JSON to check for success: true
         local parseSuccess, decoded = pcall(function()
             return HttpService:JSONDecode(result)
         end)
         
         if parseSuccess and decoded and decoded.success == true then
-            print("Server: Online")
+            print("Server is up and running! Received success: true")
             return true
         else
-            print("Server: Invalid response")
+            -- If it's not JSON or doesn't have success: true, log the response
+            print("Server response (not success: true):")
+            print(result)
             return false
         end
     else
-        print("Server: Offline")
+        print("Server check failed:", result)
         return false
     end
 end
@@ -52,27 +63,33 @@ end
 -- Function to make GET request
 local function makeGetRequest(url)
     local success, result = pcall(function()
-        return game:HttpGet(url)
+        local response = game:HttpGet(url)
+        return response
     end)
     
     if success then
-        return result
+        print("GET Request Result:")
+        print(result)
     else
-        print("GET failed:", result)
-        return nil
+        print("GET Request failed:", result)
     end
 end
 
 -- Function to make POST request
 local function makePostRequest(url, body)
+    local bodyData = body or "NULL"
+    
     local success, result = pcall(function()
-        return game:HttpPost(url, body or "NULL")
+        local response = game:HttpPost(url, bodyData)
+        return response
     end)
     
     if success then
+        print("POST Request Result:")
+        print(result)
         return result
     else
-        print("POST failed:", result)
+        print("POST Request failed:", result)
         return nil
     end
 end
@@ -92,36 +109,67 @@ local function authenticateBot()
         end)
         
         if success and decoded and decoded.success == true then
-            print("Auth: Success")
+            print("Bot authentication successful!")
             return true
         else
-            print("Auth: Failed")
+            print("Authentication failed - invalid response")
             return false
         end
     else
-        print("Auth: No response")
+        print("Authentication failed - no response")
         return false
     end
 end
 
+-- Function to teleport player and announce readiness
+local function teleportAndAnnounce()
+    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        -- Teleport to specified position
+        local targetPosition = Vector3.new(86.81375885009766, 2.999999523162842, -13.788054466247559)
+        player.Character.HumanoidRootPart.CFrame = CFrame.new(targetPosition)
+        
+        print("Player teleported!")
+        
+        -- Wait a moment then send chat message
+        wait(1)
+        
+        chat("BOT IS READY FOR TRADES!")
+    else
+        print("Player character or HumanoidRootPart not found")
+    end
+end
+
 -- Main execution
+print("Game loaded, starting bot initialization...")
+
+-- FIRST: Always check server status before everything else
 local serverUp = checkServerStatus()
 
 if not serverUp then
-    print("Bot: Server down, stopping")
+    print("Server is not responding correctly, stopping bot initialization.")
     return
 end
 
+print("Server check passed, continuing with bot setup...")
+
+-- Check if dev mode is enabled or disabled
 if dev then
-    print("Bot: Dev mode active")
+    print("Dev mode is true, skipping authentication...")
+    teleportAndAnnounce()
 else
-    print("Bot: Authenticating...")
+    print("Dev mode is false, authenticating bot...")
     local authSuccess = authenticateBot()
     
-    if not authSuccess then
-        print("Bot: Auth failed, stopping")
+    if authSuccess then
+        print("Authentication successful, proceeding with bot setup...")
+        teleportAndAnnounce()
+    else
+        print("Authentication failed, bot stopped.")
         return
     end
 end
 
-print("Bot: Ready")
+-- Usage examples:
+-- makeGetRequest("https://realtime.skinarcade.com")
+-- makePostRequest("https://realtime.skinarcade.com", "your body data here")
+-- chat("Hello everyone!") -- Easy chat usage
