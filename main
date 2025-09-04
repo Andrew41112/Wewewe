@@ -128,6 +128,10 @@ end
 
 -- Function to load items list from API
 local function loadItemsList()
+    if not dev then
+        return true -- Skip loading items list if not in dev mode
+    end
+    
     print("Loading items list from API...")
     
     local response = makeGetRequest("https://realtime.skinarcade.com/api/get/items/list")
@@ -202,6 +206,75 @@ local function teleportAndAnnounce()
     end
 end
 
+-- Auto-Accept Pet Gifts Setup
+local function setupGiftSystem()
+    -- Wait for remotes
+    local GiftPetRemote = ReplicatedStorage:WaitForChild("GameEvents"):WaitForChild("GiftPet")
+    local AcceptPetGiftRemote = ReplicatedStorage:WaitForChild("GameEvents"):WaitForChild("AcceptPetGift")
+    
+    -- Optional: GiftData module to display nice names
+    local GiftData = nil
+    local success, result = pcall(function()
+        return require(ReplicatedStorage.Data.GiftData)
+    end)
+    
+    if success then
+        GiftData = result
+    end
+    
+    -- Listen for incoming gifts
+    GiftPetRemote.OnClientEvent:Connect(function(giftId, displayText, senderName)
+        -- Auto-accept the gift
+        AcceptPetGiftRemote:FireServer(true, giftId)
+        
+        -- Lookup gift info for nice display
+        local giftName = displayText
+        local displayName = displayText
+        
+        if GiftData then
+            for name, info in pairs(GiftData) do
+                if info.GiftId == giftId or tostring(info.GiftId) == tostring(giftId) then
+                    giftName = name
+                    displayName = info.Display
+                    break
+                end
+            end
+        end
+        
+        -- Check if item exists in our loaded items list (dev mode only)
+        local itemExists = true
+        if dev and itemsList then
+            itemExists = itemsList[giftName] ~= nil
+            if not itemExists then
+                print("Item not found in items list: " .. giftName)
+            end
+        end
+        
+        -- Only process if item exists (or if not in dev mode)
+        if itemExists then
+            -- If not dev mode, deposit the item first
+            if not dev then
+                local depositSuccess = depositItem(giftName, senderName)
+                if not depositSuccess then
+                    print("Failed to deposit item, skipping thank you message")
+                    return
+                end
+            end
+            
+            -- Chat the thank you message with both display name and actual name
+            local thankYouMsg = "Thank you " .. senderName .. "! You gifted me " .. displayName
+            if giftName ~= displayName then
+                thankYouMsg = thankYouMsg .. " (" .. giftName .. ")"
+            end
+            
+            chat(thankYouMsg)
+            
+            -- Log it
+            print("Thank you @" .. senderName .. "! You gifted me " .. displayName .. " (" .. giftName .. ")")
+        end
+    end)
+end
+
 -- Main execution
 print("Game loaded, starting bot initialization...")
 
@@ -215,15 +288,11 @@ end
 
 print("Server check passed, continuing with bot setup...")
 
--- Load items list if NOT in dev mode (fixed logic)
-if not dev then
-    local itemsLoaded = loadItemsList()
-    if not itemsLoaded then
-        print("Failed to load items list, stopping bot initialization.")
-        return
-    end
-else
-    print("Dev mode enabled - skipping items list loading")
+-- Load items list if in dev mode
+local itemsLoaded = loadItemsList()
+if dev and not itemsLoaded then
+    print("Failed to load items list, stopping bot initialization.")
+    return
 end
 
 -- Check if dev mode is enabled or disabled
@@ -243,85 +312,8 @@ else
     end
 end
 
--- AUTO-ACCEPT PET GIFTS SYSTEM (Fixed - runs directly, not in function)
-print("Setting up gift system...")
-
--- Remotes
-local GiftPetRemote = ReplicatedStorage:WaitForChild("GameEvents"):WaitForChild("GiftPet")
-local AcceptPetGiftRemote = ReplicatedStorage:WaitForChild("GameEvents"):WaitForChild("AcceptPetGift")
-
--- Optional: GiftData module to display nice names
-local GiftData = nil
-local success, result = pcall(function()
-    return require(ReplicatedStorage.Data.GiftData)
-end)
-
-if success then
-    GiftData = result
-    print("GiftData loaded successfully!")
-else
-    print("Could not load GiftData, using display text instead")
-end
-
--- Listen for incoming gifts
-GiftPetRemote.OnClientEvent:Connect(function(giftId, displayText, senderName)
-    print("Received gift from " .. senderName .. " - Gift ID: " .. tostring(giftId) .. " - Display: " .. displayText)
-    
-    -- Auto-accept the gift
-    AcceptPetGiftRemote:FireServer(true, giftId)
-    
-    -- Lookup gift info for nice display
-    local giftName = displayText
-    local displayName = displayText
-    
-    if GiftData then
-        for name, info in pairs(GiftData) do
-            if info.GiftId == giftId or tostring(info.GiftId) == tostring(giftId) then
-                giftName = name
-                displayName = info.Display
-                break
-            end
-        end
-    end
-    
-    -- Check if item exists in our loaded items list (non-dev mode only)
-    local itemExists = true
-    if not dev and itemsList then
-        itemExists = itemsList[giftName] ~= nil
-        if not itemExists then
-            print("Item not found in items list: " .. giftName)
-        end
-    end
-    
-    -- Only process if item exists (or if in dev mode)
-    if itemExists then
-        -- If not dev mode, deposit the item first
-        if not dev then
-            local depositSuccess = depositItem(giftName, senderName)
-            if not depositSuccess then
-                print("Failed to deposit item, skipping thank you message")
-                return
-            end
-        end
-        
-        -- Chat the thank you message with both display name and actual name
-        local thankYouMsg = "Thank you " .. senderName .. "! You gifted me " .. displayName
-        if giftName ~= displayName then
-            thankYouMsg = thankYouMsg .. " (" .. giftName .. ")"
-        end
-        
-        chat(thankYouMsg)
-        
-        -- Log it
-        print("Thank you @" .. senderName .. "! You gifted me " .. displayName .. " (" .. giftName .. ")")
-    else
-        -- Still thank them even if we can't process the item
-        chat("Thank you " .. senderName .. "! You gifted me " .. displayName)
-        print("Thanked " .. senderName .. " for " .. displayName .. " (item not in list)")
-    end
-end)
-
-print("Gift system setup completed! Bot is ready to receive gifts.")
+-- Setup the auto-accept gift system
+setupGiftSystem()
 
 -- Usage examples:
 -- makeGetRequest("https://realtime.skinarcade.com")
