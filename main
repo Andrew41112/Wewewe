@@ -286,7 +286,7 @@ print("Server check passed, continuing with bot setup...")
 
 -- Load items list if in dev mode
 local itemsLoaded = loadItemsList()
-if dev and not itemsLoaded then
+if not dev and not itemsLoaded then
     print("Failed to load items list, stopping bot initialization.")
     return
 end
