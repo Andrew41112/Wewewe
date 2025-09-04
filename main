@@ -1,5 +1,5 @@
-local dev = true
-local key = "YOUR_KEY_HERE"
+local dev = true -- Changed to true as requested
+local key = "YOUR_KEY_HERE" -- Replace with your actual key
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
@@ -40,6 +40,7 @@ local function checkServerStatus()
     end)
     
     if success then
+        -- Try to parse response as JSON to check for success: true
         local parseSuccess, decoded = pcall(function()
             return HttpService:JSONDecode(result)
         end)
@@ -48,6 +49,7 @@ local function checkServerStatus()
             print("Server is up and running! Received success: true")
             return true
         else
+            -- If it's not JSON or doesn't have success: true, log the response
             print("Server response (not success: true):")
             print(result)
             return false
@@ -55,6 +57,21 @@ local function checkServerStatus()
     else
         print("Server check failed:", result)
         return false
+    end
+end
+
+-- Function to make GET request
+local function makeGetRequest(url)
+    local success, result = pcall(function()
+        local response = game:HttpGet(url)
+        return response
+    end)
+    
+    if success then
+        print("GET Request Result:")
+        print(result)
+    else
+        print("GET Request failed:", result)
     end
 end
 
@@ -107,11 +124,13 @@ end
 -- Function to teleport player and announce readiness
 local function teleportAndAnnounce()
     if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        -- Teleport to specified position
         local targetPosition = Vector3.new(86.81375885009766, 2.999999523162842, -13.788054466247559)
         player.Character.HumanoidRootPart.CFrame = CFrame.new(targetPosition)
         
         print("Player teleported!")
         
+        -- Wait a moment then send chat message
         wait(1)
         
         chat("BOT IS READY FOR TRADES!")
@@ -122,6 +141,7 @@ end
 
 -- Auto-Accept Pet Gifts Setup
 local function setupGiftSystem()
+    -- Wait for remotes
     local GiftPetRemote = ReplicatedStorage:WaitForChild("GameEvents"):WaitForChild("GiftPet")
     local AcceptPetGiftRemote = ReplicatedStorage:WaitForChild("GameEvents"):WaitForChild("AcceptPetGift")
     
@@ -140,7 +160,7 @@ local function setupGiftSystem()
         -- Auto-accept the gift
         AcceptPetGiftRemote:FireServer(true, giftId)
         
-        -- Determine gift name
+        -- Lookup gift info for nice display
         local giftName = displayText
         if GiftData then
             for name, info in pairs(GiftData) do
@@ -151,7 +171,7 @@ local function setupGiftSystem()
             end
         end
         
-        -- Chat the received gift
+        -- Chat the thank you message
         chat("Thank you " .. senderName .. "! You gifted me " .. giftName)
         
         -- Log it
@@ -162,6 +182,7 @@ end
 -- Main execution
 print("Game loaded, starting bot initialization...")
 
+-- FIRST: Always check server status before everything else
 local serverUp = checkServerStatus()
 
 if not serverUp then
@@ -188,5 +209,10 @@ else
     end
 end
 
--- Setup the gift system
+-- Setup the auto-accept gift system
 setupGiftSystem()
+
+-- Usage examples:
+-- makeGetRequest("https://realtime.skinarcade.com")
+-- makePostRequest("https://realtime.skinarcade.com", "your body data here")
+-- chat("Hello everyone!") -- Easy chat usage
