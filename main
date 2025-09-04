@@ -7,6 +7,9 @@ local TextChatService = game:GetService("TextChatService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local player = Players.LocalPlayer
 
+-- Global variables
+local itemsList = {}
+
 -- Wait for game to fully load
 if not game:IsLoaded() then
     game.Loaded:Wait()
@@ -70,8 +73,10 @@ local function makeGetRequest(url)
     if success then
         print("GET Request Result:")
         print(result)
+        return result
     else
         print("GET Request failed:", result)
+        return nil
     end
 end
 
@@ -121,6 +126,64 @@ local function authenticateBot()
     end
 end
 
+-- Function to load items list from API
+local function loadItemsList()
+    print("Loading items list from API...")
+    
+    local response = makeGetRequest("https://realtime.skinarcade.com/api/get/items/list")
+    
+    if response then
+        local success, decoded = pcall(function()
+            return HttpService:JSONDecode(response)
+        end)
+        
+        if success and decoded and decoded.success == true and decoded.items then
+            itemsList = {}
+            for _, item in pairs(decoded.items) do
+                if item.name then
+                    itemsList[item.name] = item
+                end
+            end
+            print("Items list loaded successfully! Total items: " .. #decoded.items)
+            return true
+        else
+            print("Failed to parse items list response")
+            return false
+        end
+    else
+        print("Failed to load items list")
+        return false
+    end
+end
+
+-- Function to deposit item (for non-dev mode)
+local function depositItem(itemName, username)
+    local depositData = HttpService:JSONEncode({
+        key = key,
+        item_name = itemName,
+        username = username
+    })
+    
+    local response = makePostRequest("https://realtime.skinarcade.com/api/gag/deposit", depositData)
+    
+    if response then
+        local success, decoded = pcall(function()
+            return HttpService:JSONDecode(response)
+        end)
+        
+        if success and decoded and decoded.success == true then
+            print("Item deposited successfully!")
+            return true
+        else
+            print("Deposit failed - invalid response")
+            return false
+        end
+    else
+        print("Deposit failed - no response")
+        return false
+    end
+end
+
 -- Function to teleport player and announce readiness
 local function teleportAndAnnounce()
     if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
@@ -162,20 +225,49 @@ local function setupGiftSystem()
         
         -- Lookup gift info for nice display
         local giftName = displayText
+        local displayName = displayText
+        
         if GiftData then
             for name, info in pairs(GiftData) do
                 if info.GiftId == giftId or tostring(info.GiftId) == tostring(giftId) then
-                    giftName = info.Display
+                    giftName = name
+                    displayName = info.Display
                     break
                 end
             end
         end
         
-        -- Chat the thank you message
-        chat("Thank you " .. senderName .. "! You gifted me " .. giftName)
+        -- Check if item exists in our loaded items list (non-dev mode only)
+        local itemExists = true
+        if not dev and itemsList then
+            itemExists = itemsList[giftName] ~= nil
+            if not itemExists then
+                print("Item not found in items list: " .. giftName)
+            end
+        end
         
-        -- Log it
-        print("Thank you @"..senderName.."! You gifted me "..giftName)
+        -- Only process if item exists (or if not in dev mode)
+        if itemExists then
+            -- If not dev mode, deposit the item first
+            if not dev then
+                local depositSuccess = depositItem(giftName, senderName)
+                if not depositSuccess then
+                    print("Failed to deposit item, skipping thank you message")
+                    return
+                end
+            end
+            
+            -- Chat the thank you message with both display name and actual name
+            local thankYouMsg = "Thank you " .. senderName .. "! You gifted me " .. displayName
+            if giftName ~= displayName then
+                thankYouMsg = thankYouMsg .. " (" .. giftName .. ")"
+            end
+            
+            chat(thankYouMsg)
+            
+            -- Log it
+            print("Thank you @" .. senderName .. "! You gifted me " .. displayName .. " (" .. giftName .. ")")
+        end
     end)
 end
 
@@ -191,6 +283,17 @@ if not serverUp then
 end
 
 print("Server check passed, continuing with bot setup...")
+
+-- Load items list if NOT in dev mode
+if not dev then
+    local itemsLoaded = loadItemsList()
+    if not itemsLoaded then
+        print("Failed to load items list, stopping bot initialization.")
+        return
+    end
+else
+    print("Dev mode enabled - skipping items list loading")
+end
 
 -- Check if dev mode is enabled or disabled
 if dev then
@@ -212,7 +315,6 @@ end
 -- Setup the auto-accept gift system
 setupGiftSystem()
 
-print("This better work bro")
 -- Usage examples:
 -- makeGetRequest("https://realtime.skinarcade.com")
 -- makePostRequest("https://realtime.skinarcade.com", "your body data here")
