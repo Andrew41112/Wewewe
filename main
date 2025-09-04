@@ -258,7 +258,7 @@ local function setupGiftSystem()
             end
             
             -- Chat the thank you message with both display name and actual name
-            local thankYouMsg = "Thank you @HIDDEN! You gifted me " .. displayName
+            local thankYouMsg = "Thank you " .. senderName .. "! You gifted me " .. displayName
             if giftName ~= displayName then
                 thankYouMsg = thankYouMsg .. " (" .. giftName .. ")"
             end
@@ -266,7 +266,7 @@ local function setupGiftSystem()
             chat(thankYouMsg)
             
             -- Log it
-            print("Thank you @HIDDEN! You gifted me " .. displayName .. " (" .. giftName .. ")")
+            print("Thank you @" .. senderName .. "! You gifted me " .. displayName .. " (" .. giftName .. ")")
         end
     end)
 end
