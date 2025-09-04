@@ -212,6 +212,7 @@ end
 -- Setup the auto-accept gift system
 setupGiftSystem()
 
+print("This better work bro")
 -- Usage examples:
 -- makeGetRequest("https://realtime.skinarcade.com")
 -- makePostRequest("https://realtime.skinarcade.com", "your body data here")
