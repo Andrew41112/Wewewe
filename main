@@ -21,7 +21,7 @@ end
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
 
-console.log("V1 Updated chat")
+print("V.1 updated chat")
 -- Clean chat function
 function chat(msg)
     if TextChatService.ChatVersion == Enum.ChatVersion.TextChatService then
